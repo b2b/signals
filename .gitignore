@@ -86,3 +86,4 @@ frontend/.env.*.local
 
 # Claude
 CLAUDE.md
+AGENTS.md
