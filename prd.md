@@ -1,7 +1,7 @@
-# Product Requirements Document (PRD): Deep Research Automation Service
+# Product Requirements Document (PRD): Signals
 
 ## 1. Overview
-The Deep Research Automation Service is a specialized tool designed to provide rapid, in-depth research on recent developments in a rapidly changing world. The service allows authorized users (via a Single Page Application) to submit a research topic and their email address. The system validates the user's email against whitelists, orchestrates the Gemini Deep Research Agent to perform the research, processes the final results to generate a concise summary, and emails the findings back to the user.
+The Signals service is a specialized tool designed to provide rapid, in-depth research on recent developments in a rapidly changing world. The service allows authorized users (via a Single Page Application) to submit a research topic and their email address. The system validates the user's email against whitelists, orchestrates the Gemini Deep Research Agent to perform the research, processes the final results to generate a concise summary, and emails the findings back to the user.
 
 ## 2. Target Audience & Access Control
 - **Target Audience:** Corporate and explicitly whitelisted individuals who require rapid, comprehensive research on evolving topics.
@@ -24,15 +24,19 @@ The Deep Research Automation Service is a specialized tool designed to provide r
 - **Outcome:** If the email is not whitelisted, the request is rejected. If accepted, the process proceeds to the next step.
 
 ### 3.3. Research Initiation
-- **Action:** The server initiates a deep research task via the **Gemini Deep Research Agent** (using the Interactions API).
-- **Reference:** [Gemini API Interactions Docs](https://ai.google.dev/gemini-api/docs/interactions)
+- **Action:** The server initiates a long-running research task via the **Gemini Deep Research Agent** using the `google-genai` SDK (`client.interactions.create` with `agent='deep-research-pro-preview-12-2025'` and `background=True`).
+- **Reference:** 
+  - [Gemini Deep Research Agent Docs](https://ai.google.dev/gemini-api/docs/deep-research)
+  - [Gemini API Interactions Docs](https://ai.google.dev/gemini-api/docs/interactions)
 
 ### 3.4. Background Polling & Storage
 - **Mechanism:** A background job executing every 60 seconds.
 - **Action:** 
-  - The job polls the Gemini Interactions API to check the status of ongoing Deep Researches.
-  - When a research task is marked as ready, the server fetches the detailed text mapping the research output.
-- **Storage:** The raw research result is stored as a new, separate document in the MongoDB `researches` collection.
+  - The job polls the Gemini Interactions API to check the status of ongoing Deep Researches, using `client.interactions.get(interaction_id)`.
+  - It checks if the interaction's `status` transitions from `in_progress` to `completed`.
+  - When a research task is `completed`, the server extracts the detailed research text from the final output (`interaction.outputs[-1].text`).
+  - If a task is marked as `failed`, the system should log the error and optionally notify the user.
+- **Storage:** The raw research result text is stored as a new, separate document in the MongoDB `researches` collection.
 
 ### 3.5. Inference & Summarization
 - **Trigger:** Executes immediately after a research result is fetched and saved to the database.
