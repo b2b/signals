@@ -387,3 +387,97 @@ h2 {
     flex-direction: column;
   }
 }
+
+/* ── Expandable research sections ─────────────────────────────────────────── */
+
+.expandable-section {
+  margin-top: 1.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1.25rem;
+}
+
+.expand-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 1.2rem;
+  border: 1.5px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.expand-toggle::before {
+  content: "▶";
+  font-size: 0.62rem;
+  transition: transform 200ms ease;
+}
+
+.expand-toggle[aria-expanded="true"]::before {
+  transform: rotate(90deg);
+}
+
+.expand-toggle:hover,
+.expand-toggle:focus-visible {
+  background: var(--accent);
+  color: #fffdf8;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.expandable-body {
+  margin-top: 1.25rem;
+}
+
+.raw-research-markdown {
+  font-size: 0.96rem;
+  color: #344044;
+  padding: 1.25rem 1.5rem;
+  background: rgba(244, 239, 230, 0.7);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+}
+
+/* ── Citations list ─────────────────────────────────────────────────────────── */
+
+.citations-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  display: grid;
+  gap: 0.6rem;
+  font-size: 0.94rem;
+  line-height: 1.65;
+}
+
+.citation-item {
+  color: var(--muted);
+}
+
+.citation-link {
+  color: var(--accent-soft);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 120ms ease;
+  word-break: break-word;
+}
+
+.citation-link:hover {
+  color: var(--highlight);
+  text-decoration: underline;
+}
+
+@media (max-width: 720px) {
+  .raw-research-markdown {
+    padding: 1rem;
+  }
+
+  .citations-list {
+    padding-left: 1.1rem;
+  }
+}
+

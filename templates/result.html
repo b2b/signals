@@ -42,6 +42,68 @@
     <article class="result-markdown">
       {{ concise_result_html | safe }}
     </article>
+
+    {% if raw_research_html %}
+      <div class="expandable-section" id="research-section">
+        <button
+          type="button"
+          class="expand-toggle"
+          id="research-toggle"
+          aria-expanded="false"
+          aria-controls="research-body"
+        >View Research</button>
+        <div class="expandable-body" id="research-body" hidden>
+          <article class="result-markdown raw-research-markdown">
+            {{ raw_research_html | safe }}
+          </article>
+        </div>
+      </div>
+    {% endif %}
+
+    {% if raw_research_citations %}
+      <div class="expandable-section" id="citations-section">
+        <button
+          type="button"
+          class="expand-toggle"
+          id="citations-toggle"
+          aria-expanded="false"
+          aria-controls="citations-body"
+        >View Research Citations</button>
+        <div class="expandable-body" id="citations-body" hidden>
+          <ol class="citations-list">
+            {% for citation in raw_research_citations %}
+              <li class="citation-item">
+                {% if citation.type == "url_citation" %}
+                  {% if citation.url %}
+                    <a href="{{ citation.url }}" target="_blank" rel="noopener noreferrer" class="citation-link">
+                      {{ citation.title or citation.url }}
+                    </a>
+                  {% else %}
+                    <span class="citation-link">{{ citation.title or "Unnamed URL" }}</span>
+                  {% endif %}
+                {% elif citation.type == "file_citation" %}
+                  <span class="citation-link">
+                    📄 {{ citation.file_name or citation.document_uri or "File citation" }}
+                    {% if citation.source %} — {{ citation.source }}{% endif %}
+                  </span>
+                {% elif citation.type == "place_citation" %}
+                  {% if citation.url %}
+                    <a href="{{ citation.url }}" target="_blank" rel="noopener noreferrer" class="citation-link">
+                      📍 {{ citation.name or "Place" }}
+                    </a>
+                  {% else %}
+                    <span class="citation-link">📍 {{ citation.name or "Place citation" }}</span>
+                  {% endif %}
+                {% else %}
+                  <span class="citation-link">{{ citation }}</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        </div>
+      </div>
+    {% endif %}
+
   </section>
 </main>
 {% if research.concise_result_audio %}
@@ -100,4 +162,23 @@
     }
   </script>
 {% endif %}
+<script>
+  document.querySelectorAll(".expand-toggle").forEach((button) => {
+    const bodyId = button.getAttribute("aria-controls");
+    const body = document.getElementById(bodyId);
+
+    const LABELS = {
+      "research-body": ["View Research", "Hide Research"],
+      "citations-body": ["View Research Citations", "Hide Research Citations"],
+    };
+
+    button.addEventListener("click", () => {
+      const isExpanded = button.getAttribute("aria-expanded") === "true";
+      button.setAttribute("aria-expanded", String(!isExpanded));
+      body.hidden = isExpanded;
+      const [showLabel, hideLabel] = LABELS[bodyId] ?? ["View", "Hide"];
+      button.textContent = isExpanded ? showLabel : hideLabel;
+    });
+  });
+</script>
 {% endblock %}

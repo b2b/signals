@@ -137,6 +137,8 @@ def create_app() -> FastAPI:
             context={
                 "research": research,
                 "concise_result_html": render_markdown_to_html(markdown_text=research.concise_result),
+                "raw_research_html": render_markdown_to_html(markdown_text=research.raw_research_text) if research.raw_research_text else None,
+                "raw_research_citations": research.raw_research_citations,
             },
         )
 
