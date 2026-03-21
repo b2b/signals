@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#f4efe6;color:#1f2223;font-family:'Avenir Next',Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fffdf8;border-radius:24px;overflow:hidden;border:1px solid #d9d0c1;">
+            <tr>
+              <td style="padding:32px 32px 24px;background:linear-gradient(135deg,#0f3d3e,#184f47 55%,#cc7a3f);color:#fffdf8;">
+                <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.24em;text-transform:uppercase;opacity:0.84;">Signals</p>
+                <h1 style="margin:0;font-size:28px;line-height:1.15;">Your research is ready</h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <p style="margin:0 0 16px;font-size:16px;line-height:1.65;">
+                  The Signals workflow has finished processing your request for:
+                </p>
+                <p style="margin:0 0 20px;padding:16px 18px;background:#f4efe6;border-radius:16px;font-size:18px;line-height:1.5;">
+                  {{ topic }}
+                </p>
+                <p style="margin:0 0 24px;font-size:15px;line-height:1.65;">
+                  Completed at {{ completed_at_label }}. Open the secure link below to view the result in your browser.
+                </p>
+                <p style="margin:0 0 24px;">
+                  <a
+                    href="{{ result_url }}"
+                    style="display:inline-block;padding:14px 22px;background:#0f3d3e;color:#fffdf8;text-decoration:none;border-radius:999px;font-weight:600;"
+                  >
+                    Open Research Result
+                  </a>
+                </p>
+                <p style="margin:0;font-size:13px;line-height:1.6;color:#5a625f;">
+                  This message was sent to {{ recipient_email }}.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

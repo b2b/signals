@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Signals Result{% endblock %}
+
+{% block content %}
+<main class="layout layout-result">
+  <section class="panel result-panel">
+    <div class="panel-header">
+      <p class="eyebrow">Research Result</p>
+      <h1>{{ research.topic }}</h1>
+      <p class="hero-copy">
+        Completed
+        {% if research.completed_at %}
+          {{ research.completed_at.strftime("%Y-%m-%d %H:%M UTC") }}
+        {% else %}
+          {{ research.updated_at.strftime("%Y-%m-%d %H:%M UTC") }}
+        {% endif %}
+      </p>
+    </div>
+    <div class="result-meta">
+      <span>Research ID</span>
+      <strong>{{ research.research_id }}</strong>
+    </div>
+    <article class="result-markdown">
+      {{ concise_result_html | safe }}
+    </article>
+  </section>
+</main>
+{% endblock %}

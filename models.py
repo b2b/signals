@@ -71,9 +71,9 @@ ResearchTopic = Annotated[str, BeforeValidator(normalize_topic)]
 
 
 class SignalsBaseModel(BaseModel):
-    """Shared strict Pydantic base for all Signals models."""
+    """Shared Pydantic base for all Signals models."""
 
-    model_config = ConfigDict(extra="forbid", strict=True, validate_assignment=True)
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
 class SubmissionSource(StrEnum):
@@ -208,7 +208,6 @@ class SignalsSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
         extra="forbid",
-        strict=True,
         validate_assignment=True,
         env_file=".env",
         env_file_encoding="utf-8",
@@ -223,6 +222,10 @@ class SignalsSettings(BaseSettings):
         default=GeminiAgentName.DEEP_RESEARCH,
         description="Gemini Deep Research agent identifier configured for long-running research tasks.",
     )
+    gemini_summary_model: NonEmptyText = Field(
+        default="gemini-3-pro-preview",
+        description="Gemini model identifier used for concise-result generation after research completes.",
+    )
     research_poll_interval_seconds: int = Field(
         default=60,
         description="Polling cadence, in seconds, for checking background Gemini interaction status.",
@@ -231,6 +234,10 @@ class SignalsSettings(BaseSettings):
     summarization_prompt_path: NonEmptyText = Field(
         default="prompts/system_prompt_1.md",
         description="Repository-relative path to the system prompt used for concise-result generation.",
+    )
+    public_base_url: NonEmptyText = Field(
+        default="http://localhost:8000",
+        description="Public base URL used to construct deep links back to the Signals SPA and result pages.",
     )
 
 
@@ -414,6 +421,42 @@ class ResearchSubmissionRejectedResponse(SignalsBaseModel):
     )
     message: NonEmptyText = Field(..., description="User-facing rejection message displayed by the SPA.")
     email: NormalizedEmail = Field(..., description="Normalized requester email address that was denied access.")
+
+
+class ResearchStatusResponse(SignalsBaseModel):
+    """API response used by the SPA to poll the current processing status of a research workflow."""
+
+    research_id: str = Field(..., description="Business UUID of the research workflow document.")
+    topic: ResearchTopic = Field(..., description="Original topic submitted for research.")
+    email: NormalizedEmail = Field(..., description="Normalized requester email address associated with the workflow.")
+    status: ResearchStatus = Field(..., description="Current end-to-end workflow status for the research request.")
+    gemini_status: GeminiInteractionStatus | None = Field(
+        default=None,
+        description="Latest Gemini interaction status for the research request, when a Gemini interaction exists.",
+    )
+    summary_status: SummaryStatus = Field(..., description="Current status of concise-result generation.")
+    notification_status: NotificationStatus | None = Field(
+        default=None,
+        description="Latest outbound notification status for the workflow, when an email notification exists.",
+    )
+    concise_result_available: bool = Field(
+        ...,
+        description="Whether a concise result has been generated and is available for rendering on the result page.",
+    )
+    created_at: datetime = Field(..., description="Timestamp when the research workflow document was created (UTC).")
+    updated_at: datetime = Field(..., description="Timestamp when the research workflow document was last updated (UTC).")
+    completed_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when the full workflow completed successfully, including notification delivery (UTC).",
+    )
+    failed_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when the workflow most recently entered a terminal failure state (UTC).",
+    )
+    latest_failure_message: str | None = Field(
+        default=None,
+        description="Most recent failure message captured for the workflow, when one exists.",
+    )
 
 
 class GeminiUrlCitation(SignalsBaseModel):
@@ -719,7 +762,7 @@ class ResearchCompletionEmailContext(SignalsBaseModel):
     research_id: str = Field(..., description="Business UUID of the completed research workflow.")
     topic: ResearchTopic = Field(..., description="Original topic included in the completion email context.")
     recipient_email: NormalizedEmail = Field(..., description="Normalized recipient email address for the completion email.")
-    concise_result: NonEmptyText = Field(..., description="Generated concise result embedded inside the completion email.")
+    result_url: NonEmptyText = Field(..., description="Deep link back to the Signals result page where the concise result can be viewed.")
     completed_at: datetime = Field(..., description="Timestamp when the research workflow reached completion (UTC).")
 
 
@@ -856,6 +899,10 @@ class Research(SignalsBaseModel):
     """Authoritative MongoDB document representing an accepted research workflow from submission to email delivery."""
 
     research_id: str = Field(default_factory=lambda: str(uuid4()), description="Business UUID for the research workflow document.")
+    result_access_token: str = Field(
+        default_factory=lambda: str(uuid4()),
+        description="Opaque token embedded in emailed deep links so only the recipient can open the rendered result page.",
+    )
     topic: ResearchTopic = Field(..., description="Original research topic requested by the user.")
     requester: ResearchRequesterSnapshot = Field(..., description="Denormalized requester details embedded for single-query reads.")
     submission_source: SubmissionSource = Field(

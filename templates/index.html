@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Signals Intake{% endblock %}
+
+{% block content %}
+<main class="layout layout-home">
+  <section class="hero-card">
+    <p class="eyebrow">Signals</p>
+    <h1>Recent-developments research for whitelisted users.</h1>
+    <p class="hero-copy">
+      Submit a topic and your email address. Signals will validate access, run Gemini Deep Research in the
+      background, and send you a secure browser link when the result is ready.
+    </p>
+    <div class="hero-grid">
+      <div class="hero-metric">
+        <span class="metric-label">Workflow</span>
+        <strong>Whitelist → Research → Summary → Email link</strong>
+      </div>
+      <div class="hero-metric">
+        <span class="metric-label">Polling cadence</span>
+        <strong>Every {{ poll_interval_seconds }} seconds</strong>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <p class="eyebrow">Submit</p>
+      <h2>Start a research run</h2>
+    </div>
+    <form id="research-form" class="research-form">
+      <label class="field">
+        <span>Email address</span>
+        <input id="email" name="email" type="email" autocomplete="email" placeholder="name@company.com" required />
+      </label>
+      <label class="field">
+        <span>Research topic</span>
+        <textarea
+          id="topic"
+          name="topic"
+          rows="7"
+          maxlength="2000"
+          placeholder="Example: Recent developments in European bank adoption of agentic AI, including regulation, vendor moves, and deployment constraints."
+          required
+        ></textarea>
+      </label>
+      <button id="submit-button" class="primary-button" type="submit">Launch Research</button>
+    </form>
+    <p class="helper-text">
+      Results are not shown on this page. When processing is complete, the service emails a secure deep link that opens the result in a separate browser tab.
+    </p>
+  </section>
+
+  <section id="status-panel" class="panel panel-muted hidden" aria-live="polite">
+    <div class="panel-header">
+      <p class="eyebrow">Status</p>
+      <h2>Workflow progress</h2>
+    </div>
+    <div class="status-grid">
+      <div class="status-item">
+        <span>Research ID</span>
+        <strong id="status-research-id">-</strong>
+      </div>
+      <div class="status-item">
+        <span>Overall</span>
+        <strong id="status-overall">-</strong>
+      </div>
+      <div class="status-item">
+        <span>Gemini</span>
+        <strong id="status-gemini">-</strong>
+      </div>
+      <div class="status-item">
+        <span>Summary</span>
+        <strong id="status-summary">-</strong>
+      </div>
+      <div class="status-item">
+        <span>Notification</span>
+        <strong id="status-notification">-</strong>
+      </div>
+      <div class="status-item">
+        <span>Latest issue</span>
+        <strong id="status-failure">None</strong>
+      </div>
+    </div>
+    <p id="status-message" class="status-message">
+      Signals is processing your request. You will receive an email with the result link when it is ready.
+    </p>
+  </section>
+</main>
+
+<script>
+  const form = document.getElementById("research-form");
+  const submitButton = document.getElementById("submit-button");
+  const statusPanel = document.getElementById("status-panel");
+  const statusMessage = document.getElementById("status-message");
+  const statusResearchId = document.getElementById("status-research-id");
+  const statusOverall = document.getElementById("status-overall");
+  const statusGemini = document.getElementById("status-gemini");
+  const statusSummary = document.getElementById("status-summary");
+  const statusNotification = document.getElementById("status-notification");
+  const statusFailure = document.getElementById("status-failure");
+
+  let statusPollTimer = null;
+
+  const isTerminalStatus = (status) => {
+    return [
+      "completed",
+      "research_failed",
+      "summarization_failed",
+      "email_failed",
+      "cancelled",
+    ].includes(status);
+  };
+
+  const updateStatusPanel = (payload) => {
+    statusPanel.classList.remove("hidden");
+    statusResearchId.textContent = payload.research_id;
+    statusOverall.textContent = payload.status;
+    statusGemini.textContent = payload.gemini_status ?? "pending";
+    statusSummary.textContent = payload.summary_status;
+    statusNotification.textContent = payload.notification_status ?? "pending";
+    statusFailure.textContent = payload.latest_failure_message ?? "None";
+
+    if (payload.status === "completed") {
+      statusMessage.textContent = "Research complete. The secure result link has been emailed to you.";
+      return;
+    }
+
+    if (payload.latest_failure_message) {
+      statusMessage.textContent = payload.latest_failure_message;
+      return;
+    }
+
+    statusMessage.textContent = "Signals is processing your request. You will receive an email with the result link when it is ready.";
+  };
+
+  const startStatusPolling = (researchId) => {
+    if (statusPollTimer !== null) {
+      window.clearInterval(statusPollTimer);
+    }
+
+    const poll = async () => {
+      const response = await fetch(`/api/researches/${researchId}`);
+      if (!response.ok) {
+        statusMessage.textContent = "Could not refresh workflow status.";
+        return;
+      }
+
+      const payload = await response.json();
+      updateStatusPanel(payload);
+      if (isTerminalStatus(payload.status)) {
+        window.clearInterval(statusPollTimer);
+        statusPollTimer = null;
+      }
+    };
+
+    poll();
+    statusPollTimer = window.setInterval(poll, 5000);
+  };
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    submitButton.disabled = true;
+    submitButton.textContent = "Submitting...";
+    statusPanel.classList.remove("hidden");
+    statusMessage.textContent = "Submitting your request...";
+    statusFailure.textContent = "None";
+
+    const payload = {
+      email: document.getElementById("email").value,
+      topic: document.getElementById("topic").value,
+    };
+
+    try {
+      const response = await fetch("/api/researches", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const body = await response.json();
+
+      if (!response.ok) {
+        statusPanel.classList.remove("hidden");
+        statusMessage.textContent = body.message ?? body.detail ?? "The request could not be submitted.";
+        statusOverall.textContent = "not_submitted";
+        statusGemini.textContent = "pending";
+        statusSummary.textContent = "pending";
+        statusNotification.textContent = "pending";
+        statusResearchId.textContent = body.research_id ?? "-";
+        statusFailure.textContent = body.detail ?? "None";
+        return;
+      }
+
+      statusMessage.textContent = body.message;
+      statusResearchId.textContent = body.research_id;
+      statusOverall.textContent = body.status;
+      statusGemini.textContent = "in_progress";
+      statusSummary.textContent = "pending";
+      statusNotification.textContent = "pending";
+      startStatusPolling(body.research_id);
+    } catch (error) {
+      statusMessage.textContent = "The request failed before the server responded.";
+      statusFailure.textContent = error.message;
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Launch Research";
+    }
+  });
+</script>
+{% endblock %}

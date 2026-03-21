@@ -4,7 +4,7 @@ This document explains how the Pydantic models in [`models.py`](./models.py) are
 
 The design follows the constraints from [`prd.md`](./prd.md) and [`CLAUDE.md`](./CLAUDE.md):
 
-- strict Pydantic v2 models
+- Pydantic v2 models
 - UUID business identifiers
 - UTC timestamps
 - single-query MongoDB reads where possible

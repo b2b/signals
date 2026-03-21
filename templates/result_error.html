@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Signals Result Error{% endblock %}
+
+{% block content %}
+<main class="layout layout-result">
+  <section class="panel error-panel">
+    <p class="eyebrow">Signals</p>
+    <h1>{{ title }}</h1>
+    <p class="hero-copy">{{ message }}</p>
+    <div class="status-item error-code">
+      <span>Status</span>
+      <strong>{{ status_code }}</strong>
+    </div>
+    <a class="primary-button inline-button" href="/">Back to Signals</a>
+  </section>
+</main>
+{% endblock %}

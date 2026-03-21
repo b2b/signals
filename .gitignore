@@ -87,3 +87,6 @@ frontend/.env.*.local
 # Claude
 CLAUDE.md
 AGENTS.md
+
+# Other
+mock_data_genetaror.py

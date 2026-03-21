@@ -59,7 +59,7 @@ Designed to be consistent with the project's coding principles (`CLAUDE.md`):
 - **Language:** Python 3.14
 - **API Framework:** FastAPI
 - **Database:** MongoDB Atlas (accessed via `motor` for async operations)
-- **Data Validation:** Pydantic V2 (strict mode)
+- **Data Validation:** Pydantic V2
 
 ### 4.2. Database Schema Details (MongoDB)
 - **Collections:**
