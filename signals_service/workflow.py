@@ -8,6 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from models import (
     AgentmailSendMessageRequest,
+    AudioStatus,
     GeminiDeepResearchRequest,
     GeminiInteractionStatus,
     NotificationStatus,
@@ -31,8 +32,8 @@ from models import (
     WhitelistDecisionReason,
     WhitelistMatchType,
 )
-from signals_service import emailing, gemini
-from signals_service.prompting import build_deep_research_input, build_result_url
+from signals_service import audio_files, emailing, gemini, speech
+from signals_service.prompting import build_deep_research_input, build_result_audio_url, build_result_url
 from signals_service.rendering import render_completion_email_bodies
 from signals_service.repositories import (
     find_active_whitelisted_email,
@@ -77,6 +78,7 @@ def append_lifecycle_event(
             research_status=research.status,
             gemini_status=research.gemini_interaction.status if research.gemini_interaction else None,
             summary_status=research.summary.status,
+            audio_status=research.audio_asset.status,
             notification_status=research.email_notification.status if research.email_notification else None,
             reference_id=reference_id,
         )
@@ -192,8 +194,10 @@ def build_status_response(*, research: Research) -> ResearchStatusResponse:
         status=research.status,
         gemini_status=research.gemini_interaction.status if research.gemini_interaction else None,
         summary_status=research.summary.status,
+        audio_status=research.audio_asset.status,
         notification_status=research.email_notification.status if research.email_notification else None,
         concise_result_available=research.concise_result is not None,
+        concise_result_audio_available=research.concise_result_audio is not None,
         created_at=research.created_at,
         updated_at=research.updated_at,
         completed_at=research.completed_at,
@@ -270,6 +274,52 @@ def _mark_summarization_failed(*, research: Research, message: str, provider_cod
     append_lifecycle_event(
         research=failed_research,
         event_type=ResearchLifecycleEventType.SUMMARIZATION_FAILED,
+        message=message,
+        reference_id=failed_research.research_id,
+    )
+    return failed_research
+
+
+def _mark_audio_generation_failed(
+    *,
+    research: Research,
+    message: str,
+    provider: str,
+    provider_code: str | None,
+    retryable: bool,
+) -> Research:
+    """Move the workflow into the audio-failed terminal state."""
+    failure = build_failure(
+        stage=ResearchFailureStage.AUDIO,
+        message=message,
+        provider=provider,
+        provider_code=provider_code,
+        retryable=retryable,
+    )
+    failed_research = research.model_copy(deep=True)
+    failed_research.failures.append(failure)
+    failed_audio_asset = failed_research.audio_asset.model_copy(
+        update={
+            "status": AudioStatus.FAILED,
+            "failed_at": failure.occurred_at,
+            "failure": failure,
+            "version": failed_research.audio_asset.version + 1,
+        },
+        deep=True,
+    )
+    failed_research = _validated_research_update(
+        research=failed_research,
+        update={
+            "failures": failed_research.failures,
+            "audio_asset": failed_audio_asset,
+            "status": ResearchStatus.AUDIO_FAILED,
+            "failed_at": failure.occurred_at,
+            "status_updated_at": failure.occurred_at,
+        },
+    )
+    append_lifecycle_event(
+        research=failed_research,
+        event_type=ResearchLifecycleEventType.AUDIO_GENERATION_FAILED,
         message=message,
         reference_id=failed_research.research_id,
     )
@@ -505,6 +555,85 @@ async def _send_completion_email(
     return await replace_research(database=database, research=completed_research)
 
 
+async def _generate_concise_result_audio(
+    *,
+    database: AsyncIOMotorDatabase,
+    settings: SignalsSettings,
+    template_environment: Environment,
+    research: Research,
+) -> Research:
+    """Synthesize the concise result into speech, save it locally, then send the completion email."""
+    if research.concise_result is None:
+        raise ValueError("Cannot synthesize concise-result audio without concise_result.")
+    try:
+        audio_bytes, mime_type, file_extension = await speech.generate_concise_result_audio(
+            settings=settings,
+            text=research.concise_result,
+        )
+    except Exception as exc:
+        failed_research = _mark_audio_generation_failed(
+            research=research,
+            message=f"ElevenLabs audio generation failed: {exc}",
+            provider="elevenlabs",
+            provider_code=None,
+            retryable=True,
+        )
+        return await replace_research(database=database, research=failed_research)
+    try:
+        audio_file_path = await audio_files.save_concise_result_audio(
+            settings=settings,
+            research_id=research.research_id,
+            audio_bytes=audio_bytes,
+            file_extension=file_extension,
+        )
+    except Exception as exc:
+        failed_research = _mark_audio_generation_failed(
+            research=research,
+            message=f"Local audio file persistence failed: {exc}",
+            provider="local_filesystem",
+            provider_code=None,
+            retryable=True,
+        )
+        return await replace_research(database=database, research=failed_research)
+    audio_completion_time = _utc_now()
+    completed_audio_asset = research.audio_asset.model_copy(
+        update={
+            "status": AudioStatus.COMPLETED,
+            "file_path": audio_file_path,
+            "mime_type": mime_type,
+            "byte_count": len(audio_bytes),
+            "completed_at": audio_completion_time,
+            "failed_at": None,
+            "failure": None,
+            "version": research.audio_asset.version + 1,
+        },
+        deep=True,
+    )
+    audio_completed_research = _validated_research_update(
+        research=research,
+        update={
+            "concise_result_audio": build_result_audio_url(settings=settings, research=research),
+            "audio_asset": completed_audio_asset,
+            "status": ResearchStatus.READY_TO_EMAIL,
+            "status_updated_at": audio_completion_time,
+            "failed_at": None,
+        },
+    )
+    append_lifecycle_event(
+        research=audio_completed_research,
+        event_type=ResearchLifecycleEventType.AUDIO_GENERATION_COMPLETED,
+        message="Concise-result audio generated and saved locally successfully.",
+        reference_id=audio_file_path,
+    )
+    persisted_audio = await replace_research(database=database, research=audio_completed_research)
+    return await _send_completion_email(
+        database=database,
+        settings=settings,
+        template_environment=template_environment,
+        research=persisted_audio,
+    )
+
+
 async def _summarize_completed_research(
     *,
     database: AsyncIOMotorDatabase,
@@ -578,14 +707,33 @@ async def _summarize_completed_research(
         },
         deep=True,
     )
+    started_audio_asset = persisted_summary_start.audio_asset.model_copy(
+        update={
+            "status": AudioStatus.IN_PROGRESS,
+            "model_name": settings.elevenlabs_model_id,
+            "voice_id": settings.elevenlabs_voice_id,
+            "output_format": settings.elevenlabs_output_format,
+            "storage_provider": "local_filesystem",
+            "file_path": None,
+            "mime_type": None,
+            "byte_count": 0,
+            "started_at": summary_completion_time,
+            "completed_at": None,
+            "failed_at": None,
+            "failure": None,
+            "version": persisted_summary_start.audio_asset.version + 1,
+        },
+        deep=True,
+    )
     summarized_research = _validated_research_update(
         research=persisted_summary_start,
         update={
             "concise_result": concise_result,
-            "status": ResearchStatus.READY_TO_EMAIL,
+            "status": ResearchStatus.AUDIO_GENERATION_IN_PROGRESS,
             "status_updated_at": summary_completion_time,
             "failed_at": None,
             "summary": completed_summary,
+            "audio_asset": started_audio_asset,
         },
     )
     append_lifecycle_event(
@@ -594,8 +742,14 @@ async def _summarize_completed_research(
         message="Concise result generated successfully.",
         reference_id=research.research_id,
     )
+    append_lifecycle_event(
+        research=summarized_research,
+        event_type=ResearchLifecycleEventType.AUDIO_GENERATION_STARTED,
+        message="Concise-result audio generation started.",
+        reference_id=research.research_id,
+    )
     persisted_summary = await replace_research(database=database, research=summarized_research)
-    return await _send_completion_email(
+    return await _generate_concise_result_audio(
         database=database,
         settings=settings,
         template_environment=template_environment,

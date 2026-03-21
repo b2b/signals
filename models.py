@@ -143,17 +143,28 @@ class ResearchStatus(StrEnum):
     RESEARCH_IN_PROGRESS = "research_in_progress"
     RESEARCH_COMPLETED = "research_completed"
     SUMMARIZATION_IN_PROGRESS = "summarization_in_progress"
+    AUDIO_GENERATION_IN_PROGRESS = "audio_generation_in_progress"
     READY_TO_EMAIL = "ready_to_email"
     EMAIL_SENDING = "email_sending"
     COMPLETED = "completed"
     RESEARCH_FAILED = "research_failed"
     SUMMARIZATION_FAILED = "summarization_failed"
+    AUDIO_FAILED = "audio_failed"
     EMAIL_FAILED = "email_failed"
     CANCELLED = "cancelled"
 
 
 class SummaryStatus(StrEnum):
     """States for the concise-result generation stage."""
+
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class AudioStatus(StrEnum):
+    """States for the concise-result audio generation and storage stage."""
 
     PENDING = "pending"
     IN_PROGRESS = "in_progress"
@@ -182,6 +193,7 @@ class ResearchFailureStage(StrEnum):
 
     RESEARCH = "research"
     SUMMARIZATION = "summarization"
+    AUDIO = "audio"
     EMAIL = "email"
 
 
@@ -197,6 +209,9 @@ class ResearchLifecycleEventType(StrEnum):
     SUMMARIZATION_STARTED = "summarization_started"
     SUMMARIZATION_COMPLETED = "summarization_completed"
     SUMMARIZATION_FAILED = "summarization_failed"
+    AUDIO_GENERATION_STARTED = "audio_generation_started"
+    AUDIO_GENERATION_COMPLETED = "audio_generation_completed"
+    AUDIO_GENERATION_FAILED = "audio_generation_failed"
     EMAIL_STARTED = "email_started"
     EMAIL_SENT = "email_sent"
     EMAIL_FAILED = "email_failed"
@@ -207,13 +222,14 @@ class SignalsSettings(BaseSettings):
     """Application configuration hydrated from environment variables elsewhere in the service."""
 
     model_config = SettingsConfigDict(
-        extra="forbid",
+        extra="ignore",
         validate_assignment=True,
         env_file=".env",
         env_file_encoding="utf-8",
     )
 
     gemini_api_key: SecretStr = Field(..., description="Gemini API key used for the Interactions and Deep Research APIs.")
+    elevenlabs_api_key: SecretStr = Field(..., description="ElevenLabs API key used to synthesize concise-result audio.")
     mongodb_url: SecretStr = Field(..., description="MongoDB Atlas connection string for the active deployment.")
     database_name: NonEmptyText = Field(..., description="MongoDB database name used by the Signals service.")
     agentmail_api_key: SecretStr = Field(..., description="Agentmail API key used for outbound completion emails.")
@@ -234,6 +250,22 @@ class SignalsSettings(BaseSettings):
     summarization_prompt_path: NonEmptyText = Field(
         default="prompts/system_prompt_1.md",
         description="Repository-relative path to the system prompt used for concise-result generation.",
+    )
+    elevenlabs_voice_id: NonEmptyText = Field(
+        default="JBFqnCBsd6RMkjVDRZzb",
+        description="ElevenLabs voice identifier used when synthesizing concise-result audio.",
+    )
+    elevenlabs_model_id: NonEmptyText = Field(
+        default="eleven_multilingual_v2",
+        description="ElevenLabs model identifier used for concise-result audio generation.",
+    )
+    elevenlabs_output_format: NonEmptyText = Field(
+        default="mp3_44100_128",
+        description="ElevenLabs output format used for concise-result audio generation.",
+    )
+    audio_storage_directory: NonEmptyText = Field(
+        default="generated_audio",
+        description="Repository-relative directory used for persisting synthesized concise-result audio files locally.",
     )
     public_base_url: NonEmptyText = Field(
         default="http://localhost:8000",
@@ -435,6 +467,7 @@ class ResearchStatusResponse(SignalsBaseModel):
         description="Latest Gemini interaction status for the research request, when a Gemini interaction exists.",
     )
     summary_status: SummaryStatus = Field(..., description="Current status of concise-result generation.")
+    audio_status: AudioStatus = Field(..., description="Current status of concise-result audio generation and blob persistence.")
     notification_status: NotificationStatus | None = Field(
         default=None,
         description="Latest outbound notification status for the workflow, when an email notification exists.",
@@ -442,6 +475,10 @@ class ResearchStatusResponse(SignalsBaseModel):
     concise_result_available: bool = Field(
         ...,
         description="Whether a concise result has been generated and is available for rendering on the result page.",
+    )
+    concise_result_audio_available: bool = Field(
+        ...,
+        description="Whether synthesized concise-result audio is available for playback on the result page.",
     )
     created_at: datetime = Field(..., description="Timestamp when the research workflow document was created (UTC).")
     updated_at: datetime = Field(..., description="Timestamp when the research workflow document was last updated (UTC).")
@@ -756,6 +793,62 @@ class ResearchSummary(SignalsBaseModel):
     version: int = Field(default=1, description="Stage version, starts at 1 and increments on each update.", ge=1)
 
 
+class ResearchAudioAsset(SignalsBaseModel):
+    """Metadata for the concise-result audio generation and local-file persistence stage."""
+
+    model_config = ConfigDict(extra="ignore", validate_assignment=True)
+
+    research_audio_asset_id: str = Field(
+        default_factory=lambda: str(uuid4()),
+        description="Business UUID for this concise-result audio asset record.",
+    )
+    status: AudioStatus = Field(default=AudioStatus.PENDING, description="Current status of concise-result audio generation and storage.")
+    provider: str = Field(default="elevenlabs", description="Speech provider used for concise-result audio generation.")
+    model_name: str | None = Field(
+        default=None,
+        description="ElevenLabs model identifier used for concise-result audio generation.",
+    )
+    voice_id: str | None = Field(
+        default=None,
+        description="ElevenLabs voice identifier used for concise-result audio generation.",
+    )
+    output_format: str | None = Field(
+        default=None,
+        description="Requested ElevenLabs output format used for concise-result audio generation.",
+    )
+    storage_provider: str = Field(default="local_filesystem", description="Storage provider used for persisting the synthesized audio asset.")
+    file_path: str | None = Field(
+        default=None,
+        description="Absolute local filesystem path of the synthesized concise-result audio file.",
+    )
+    mime_type: str | None = Field(
+        default=None,
+        description="MIME type stored alongside the synthesized concise-result audio file.",
+    )
+    byte_count: int = Field(
+        default=0,
+        description="Size of the synthesized concise-result audio file in bytes.",
+        ge=0,
+    )
+    started_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when concise-result audio generation started (UTC).",
+    )
+    completed_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when concise-result audio generation and local file persistence completed successfully (UTC).",
+    )
+    failed_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when concise-result audio generation or local file persistence failed (UTC).",
+    )
+    failure: ResearchFailure | None = Field(
+        default=None,
+        description="Failure metadata captured when concise-result audio generation or local file persistence does not succeed.",
+    )
+    version: int = Field(default=1, description="Stage version, starts at 1 and increments on each update.", ge=1)
+
+
 class ResearchCompletionEmailContext(SignalsBaseModel):
     """Template context used to render the research completion email sent to the requester."""
 
@@ -881,6 +974,10 @@ class ResearchLifecycleEvent(SignalsBaseModel):
         default=None,
         description="Summarization status immediately after this event, when relevant.",
     )
+    audio_status: AudioStatus | None = Field(
+        default=None,
+        description="Audio-generation status immediately after this event, when relevant.",
+    )
     notification_status: NotificationStatus | None = Field(
         default=None,
         description="Notification status immediately after this event, when relevant.",
@@ -941,6 +1038,10 @@ class Research(SignalsBaseModel):
         default=None,
         description="Concise summary text appended to the research document after summarization completes.",
     )
+    concise_result_audio: str | None = Field(
+        default=None,
+        description="Tokenized application URL for streaming the synthesized concise-result audio file in the SPA.",
+    )
     summary: ResearchSummary = Field(
         default_factory=lambda: ResearchSummary(
             prompt_reference=PromptReference(
@@ -949,6 +1050,10 @@ class Research(SignalsBaseModel):
             )
         ),
         description="Summarization stage metadata for generating the concise result.",
+    )
+    audio_asset: ResearchAudioAsset = Field(
+        default_factory=ResearchAudioAsset,
+        description="Audio-generation metadata for synthesizing and storing the concise result.",
     )
     email_notification: ResearchEmailNotification | None = Field(
         default=None,
@@ -1001,18 +1106,24 @@ class Research(SignalsBaseModel):
             raise ValueError("concise_result may only be present when summary.status is completed.")
         if self.summary.status is SummaryStatus.COMPLETED and self.concise_result is None:
             raise ValueError("summary.status cannot be completed without concise_result.")
+        if self.concise_result_audio is not None and self.audio_asset.status is not AudioStatus.COMPLETED:
+            raise ValueError("concise_result_audio may only be present when audio_asset.status is completed.")
+        if self.audio_asset.status is AudioStatus.COMPLETED and self.concise_result_audio is None:
+            raise ValueError("audio_asset.status cannot be completed without concise_result_audio.")
         if self.status is ResearchStatus.RESEARCH_COMPLETED and self.raw_research_text is None:
             raise ValueError("research status cannot be research_completed without raw_research_text.")
         if self.status in {ResearchStatus.READY_TO_EMAIL, ResearchStatus.EMAIL_SENDING, ResearchStatus.COMPLETED} and self.concise_result is None:
             raise ValueError("Research cannot progress past summarization without concise_result.")
         if self.email_notification and self.email_notification.status is NotificationStatus.SENT and self.concise_result is None:
             raise ValueError("A sent email notification requires concise_result to be present.")
+        if self.status is ResearchStatus.AUDIO_GENERATION_IN_PROGRESS and self.concise_result is None:
+            raise ValueError("Audio generation cannot start before concise_result is present.")
         if self.status is ResearchStatus.COMPLETED:
             if self.email_notification is None or self.email_notification.status is not NotificationStatus.SENT:
                 raise ValueError("Completed research requires a sent email notification.")
             if self.completed_at is None:
                 raise ValueError("completed_at must be set when the workflow status is completed.")
-        if self.status in {ResearchStatus.RESEARCH_FAILED, ResearchStatus.SUMMARIZATION_FAILED, ResearchStatus.EMAIL_FAILED} and self.failed_at is None:
+        if self.status in {ResearchStatus.RESEARCH_FAILED, ResearchStatus.SUMMARIZATION_FAILED, ResearchStatus.AUDIO_FAILED, ResearchStatus.EMAIL_FAILED} and self.failed_at is None:
             raise ValueError("failed_at must be set when the workflow is in a failed terminal state.")
         if self.status is ResearchStatus.CANCELLED and self.cancelled_at is None:
             raise ValueError("cancelled_at must be set when the workflow status is cancelled.")

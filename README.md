@@ -2,7 +2,8 @@
 
 Signals is a FastAPI service for whitelisted recent-developments research requests. It validates the requester,
 submits a Gemini Deep Research job, polls for completion, summarizes the final report with standard Gemini inference,
-and emails a secure deep link to a browser result page.
+converts the concise result into audio with ElevenLabs, stores the MP3 locally, and emails a secure deep link to a
+browser result page.
 
 ## What is included
 
@@ -22,7 +23,8 @@ pip install -r requirements.txt
 ```
 
 3. Copy [`.env.example`](/Users/oleg/VSCodeProjects/signals/.env.example) to `.env` and fill in:
-   `GEMINI_API_KEY`, `MONGODB_URL`, `DATABASE_NAME`, `AGENTMAIL_API_KEY`, `EMAIL_ADDRESS`.
+   `GEMINI_API_KEY`, `ELEVENLABS_API_KEY`, `MONGODB_URL`, `DATABASE_NAME`, `AGENTMAIL_API_KEY`,
+   `EMAIL_ADDRESS`. Optionally set `AUDIO_STORAGE_DIRECTORY` if you do not want audio files under `generated_audio`.
 
 4. Seed the two requested whitelist entries:
 
@@ -46,6 +48,8 @@ uvicorn main:app --reload
   `deep-research-pro-preview-12-2025`.
 - The background loop polls Gemini every `RESEARCH_POLL_INTERVAL_SECONDS`.
 - When research completes, the service generates `concise_result` using `gemini-3-pro-preview`.
+- The service synthesizes `concise_result` into `concise_result_audio` using ElevenLabs, saves the MP3 locally, and
+  serves it through a token-protected result-audio endpoint before the completion email is sent.
 - The completion email does not include the summary body. It includes a secure deep link to the
   result page at `/results/{research_id}?token=...`.
 
@@ -55,4 +59,5 @@ uvicorn main:app --reload
 - `POST /api/researches` submits a new research request.
 - `GET /api/researches/{research_id}` returns workflow status for the SPA.
 - `GET /results/{research_id}?token=...` renders the summary result page.
+- `GET /results/{research_id}/audio?token=...` streams the generated concise-result audio for the SPA player.
 - `GET /api/health` returns a lightweight health payload.

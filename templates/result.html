@@ -21,9 +21,83 @@
       <span>Research ID</span>
       <strong>{{ research.research_id }}</strong>
     </div>
+    {% if research.concise_result_audio %}
+      <section class="audio-panel" data-audio-player>
+        <div class="audio-panel-header">
+          <div>
+            <p class="eyebrow">Listen</p>
+            <h2>Audio Briefing</h2>
+          </div>
+          <p class="audio-timer" data-audio-timer>0:00 / 0:00</p>
+        </div>
+        <div class="audio-controls">
+          <button type="button" class="primary-button audio-toggle" data-audio-toggle>Play Summary</button>
+          <div class="audio-progress-track" aria-hidden="true">
+            <div class="audio-progress-fill" data-audio-progress></div>
+          </div>
+        </div>
+        <audio preload="metadata" src="{{ research.concise_result_audio }}" data-audio-element></audio>
+      </section>
+    {% endif %}
     <article class="result-markdown">
       {{ concise_result_html | safe }}
     </article>
   </section>
 </main>
+{% if research.concise_result_audio %}
+  <script>
+    const audioPlayer = document.querySelector("[data-audio-player]");
+
+    if (audioPlayer) {
+      const audioElement = audioPlayer.querySelector("[data-audio-element]");
+      const audioToggle = audioPlayer.querySelector("[data-audio-toggle]");
+      const audioTimer = audioPlayer.querySelector("[data-audio-timer]");
+      const audioProgress = audioPlayer.querySelector("[data-audio-progress]");
+
+      const formatTime = (seconds) => {
+        if (!Number.isFinite(seconds) || seconds < 0) {
+          return "0:00";
+        }
+
+        const roundedSeconds = Math.floor(seconds);
+        const minutes = Math.floor(roundedSeconds / 60);
+        const remainingSeconds = String(roundedSeconds % 60).padStart(2, "0");
+        return `${minutes}:${remainingSeconds}`;
+      };
+
+      const updateAudioUI = () => {
+        const duration = Number.isFinite(audioElement.duration) ? audioElement.duration : 0;
+        const currentTime = Number.isFinite(audioElement.currentTime) ? audioElement.currentTime : 0;
+        const progressRatio = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
+
+        audioTimer.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+        audioProgress.style.width = `${progressRatio * 100}%`;
+        audioToggle.textContent = audioElement.paused ? "Play Summary" : "Pause Summary";
+      };
+
+      audioToggle.addEventListener("click", async () => {
+        if (audioElement.paused) {
+          try {
+            await audioElement.play();
+          } catch (error) {
+            audioTimer.textContent = "Playback unavailable";
+            return;
+          }
+        } else {
+          audioElement.pause();
+        }
+
+        updateAudioUI();
+      });
+
+      audioElement.addEventListener("loadedmetadata", updateAudioUI);
+      audioElement.addEventListener("timeupdate", updateAudioUI);
+      audioElement.addEventListener("play", updateAudioUI);
+      audioElement.addEventListener("pause", updateAudioUI);
+      audioElement.addEventListener("ended", updateAudioUI);
+
+      updateAudioUI();
+    }
+  </script>
+{% endif %}
 {% endblock %}

@@ -58,3 +58,10 @@ def build_result_url(*, settings: SignalsSettings, research: Research) -> str:
     base_url = settings.public_base_url.rstrip("/")
     escaped_token = quote(research.result_access_token, safe="")
     return f"{base_url}/results/{research.research_id}?token={escaped_token}"
+
+
+def build_result_audio_url(*, settings: SignalsSettings, research: Research) -> str:
+    """Build the tokenized audio URL used by the SPA audio player."""
+    base_url = settings.public_base_url.rstrip("/")
+    escaped_token = quote(research.result_access_token, safe="")
+    return f"{base_url}/results/{research.research_id}/audio?token={escaped_token}"

@@ -10,3 +10,4 @@ httpx
 surrealdb
 agentmail
 google-genai
+elevenlabs

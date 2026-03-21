@@ -14,7 +14,7 @@
     <div class="hero-grid">
       <div class="hero-metric">
         <span class="metric-label">Workflow</span>
-        <strong>Whitelist → Research → Summary → Email link</strong>
+        <strong>Whitelist → Research → Summary → Audio → Email link</strong>
       </div>
       <div class="hero-metric">
         <span class="metric-label">Polling cadence</span>
@@ -74,6 +74,10 @@
         <strong id="status-summary">-</strong>
       </div>
       <div class="status-item">
+        <span>Audio</span>
+        <strong id="status-audio">-</strong>
+      </div>
+      <div class="status-item">
         <span>Notification</span>
         <strong id="status-notification">-</strong>
       </div>
@@ -97,6 +101,7 @@
   const statusOverall = document.getElementById("status-overall");
   const statusGemini = document.getElementById("status-gemini");
   const statusSummary = document.getElementById("status-summary");
+  const statusAudio = document.getElementById("status-audio");
   const statusNotification = document.getElementById("status-notification");
   const statusFailure = document.getElementById("status-failure");
 
@@ -107,6 +112,7 @@
       "completed",
       "research_failed",
       "summarization_failed",
+      "audio_failed",
       "email_failed",
       "cancelled",
     ].includes(status);
@@ -118,6 +124,7 @@
     statusOverall.textContent = payload.status;
     statusGemini.textContent = payload.gemini_status ?? "pending";
     statusSummary.textContent = payload.summary_status;
+    statusAudio.textContent = payload.audio_status;
     statusNotification.textContent = payload.notification_status ?? "pending";
     statusFailure.textContent = payload.latest_failure_message ?? "None";
 
@@ -188,6 +195,7 @@
         statusOverall.textContent = "not_submitted";
         statusGemini.textContent = "pending";
         statusSummary.textContent = "pending";
+        statusAudio.textContent = "pending";
         statusNotification.textContent = "pending";
         statusResearchId.textContent = body.research_id ?? "-";
         statusFailure.textContent = body.detail ?? "None";
@@ -199,6 +207,7 @@
       statusOverall.textContent = body.status;
       statusGemini.textContent = "in_progress";
       statusSummary.textContent = "pending";
+      statusAudio.textContent = "pending";
       statusNotification.textContent = "pending";
       startStatusPolling(body.research_id);
     } catch (error) {

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -17,6 +17,7 @@ from models import (
     ResearchSubmissionRequest,
     SignalsSettings,
 )
+from signals_service.audio_files import resolve_research_audio_file_path
 from signals_service.database import create_mongo_client, ensure_indexes, get_database
 from signals_service.prompting import load_prompt_reference, resolve_repository_path
 from signals_service.rendering import render_markdown_to_html
@@ -137,6 +138,28 @@ def create_app() -> FastAPI:
                 "research": research,
                 "concise_result_html": render_markdown_to_html(markdown_text=research.concise_result),
             },
+        )
+
+    @app.get("/results/{research_id}/audio", response_class=FileResponse)
+    async def research_result_audio(request: Request, research_id: str, token: str = Query(...)) -> FileResponse:
+        research = await get_research(database=request.app.state.database, research_id=research_id)
+        if research is None or research.result_access_token != token:
+            raise HTTPException(status_code=404, detail="Audio not found.")
+        if research.concise_result_audio is None:
+            raise HTTPException(status_code=409, detail="Audio is not ready.")
+        try:
+            audio_file_path = resolve_research_audio_file_path(
+                settings=request.app.state.settings,
+                research=research,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        if audio_file_path is None or not audio_file_path.exists():
+            raise HTTPException(status_code=404, detail="Audio file not found.")
+        return FileResponse(
+            path=audio_file_path,
+            media_type=research.audio_asset.mime_type or "audio/mpeg",
+            filename=audio_file_path.name,
         )
 
     @app.get("/api/health")
