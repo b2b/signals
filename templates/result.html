@@ -1,184 +1,213 @@
 {% extends "base.html" %}
 
-{% block title %}Signals Result{% endblock %}
+{% block title %}Signals — {{ research.topic[:60] }}{% if research.topic|length > 60 %}…{% endif %}{% endblock %}
 
 {% block content %}
-<main class="layout layout-result">
-  <section class="panel result-panel">
-    <div class="panel-header">
-      <p class="eyebrow">Research Result</p>
-      <h1>{{ research.topic }}</h1>
-      <p class="hero-copy">
+
+<!-- ── Top navigation ───────────────────────────────────────────────────────────── -->
+<header class="relative z-10 flex items-center justify-between px-6 py-5 max-w-7xl mx-auto">
+  <div class="flex items-center gap-3">
+    <span class="w-2 h-2 rounded-full bg-sig-amberlt"></span>
+    <span class="font-serif text-xl font-semibold tracking-tight text-white">Signals</span>
+  </div>
+  <span class="text-xs font-medium tracking-[0.2em] uppercase text-slate-500">Research Result</span>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────────────────────────── -->
+<main class="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 pb-24">
+
+  <!-- Topic headline card -->
+  <div class="sig-panel p-7 sm:p-10 mb-6">
+
+    <p class="text-[10px] font-semibold tracking-[0.25em] uppercase text-sig-amberlt mb-3">Research Result</p>
+    <h1 class="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-white leading-tight tracking-tight mb-5">
+      {{ research.topic }}
+    </h1>
+
+    <!-- Meta row -->
+    <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-400">
+      <span class="flex items-center gap-2">
+        <svg class="w-3.5 h-3.5 text-teal-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
         Completed
         {% if research.completed_at %}
           {{ research.completed_at.strftime("%Y-%m-%d %H:%M UTC") }}
         {% else %}
           {{ research.updated_at.strftime("%Y-%m-%d %H:%M UTC") }}
         {% endif %}
-      </p>
+      </span>
+      <span class="flex items-center gap-2">
+        <svg class="w-3.5 h-3.5 text-teal-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
+        </svg>
+        <span class="font-mono text-xs">{{ research.research_id }}</span>
+      </span>
     </div>
-    <div class="result-meta">
-      <span>Research ID</span>
-      <strong>{{ research.research_id }}</strong>
+
+  </div>
+
+  <!-- ── Audio briefing ─────────────────────────────────────────────────────── -->
+  {% if research.concise_result_audio %}
+  <div class="sig-panel p-6 sm:p-8 mb-6" data-audio-player>
+
+    <div class="flex items-center justify-between gap-4 mb-5">
+      <div>
+        <p class="text-[10px] font-semibold tracking-[0.25em] uppercase text-sig-amberlt mb-0.5">Listen</p>
+        <h2 class="font-serif text-xl font-bold text-white">Audio Briefing</h2>
+      </div>
+      <p class="font-mono text-sm font-semibold text-teal-400 tabular-nums" data-audio-timer>0:00 / 0:00</p>
     </div>
-    {% if research.concise_result_audio %}
-      <section class="audio-panel" data-audio-player>
-        <div class="audio-panel-header">
-          <div>
-            <p class="eyebrow">Listen</p>
-            <h2>Audio Briefing</h2>
-          </div>
-          <p class="audio-timer" data-audio-timer>0:00 / 0:00</p>
-        </div>
-        <div class="audio-controls">
-          <button type="button" class="primary-button audio-toggle" data-audio-toggle>Play Summary</button>
-          <div class="audio-progress-track" aria-hidden="true">
-            <div class="audio-progress-fill" data-audio-progress></div>
-          </div>
-        </div>
-        <audio preload="metadata" src="{{ research.concise_result_audio }}" data-audio-element></audio>
-      </section>
-    {% endif %}
-    <article class="result-markdown">
+
+    <!-- Progress bar -->
+    <div class="relative overflow-hidden w-full h-1.5 rounded-full bg-white/10 mb-5 cursor-pointer" id="audio-progress-track" aria-hidden="true">
+      <div class="h-full rounded-full sig-progress-fill" data-audio-progress></div>
+    </div>
+
+    <!-- Controls -->
+    <button
+      type="button"
+      data-audio-toggle
+      class="sig-btn-cta"
+    >
+      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true" id="audio-icon-play">
+        <path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.84Z" />
+      </svg>
+      <span class="ml-2">Play Summary</span>
+    </button>
+
+    <audio preload="metadata" src="{{ research.concise_result_audio }}" data-audio-element></audio>
+  </div>
+  {% endif %}
+
+  <!-- ── Concise result ─────────────────────────────────────────────────────── -->
+  <div class="sig-panel p-7 sm:p-10 mb-4">
+    <p class="text-[10px] font-semibold tracking-[0.25em] uppercase text-sig-amberlt mb-3">Summary</p>
+    <h2 class="font-serif text-2xl font-bold text-white mb-6">Concise Result</h2>
+    <article class="
+      prose prose-invert prose-slate max-w-none
+      prose-headings:font-serif prose-headings:font-bold prose-headings:tracking-tight
+      prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg
+      prose-p:text-slate-300 prose-p:leading-relaxed
+      prose-li:text-slate-300
+      prose-strong:text-teal-300
+      prose-a:text-sig-amberlt prose-a:no-underline hover:prose-a:underline
+      prose-code:text-teal-300 prose-code:bg-teal-950/60 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:before:content-none prose-code:after:content-none
+    ">
       {{ concise_result_html | safe }}
     </article>
+  </div>
 
-    {% if raw_research_html %}
-      <div class="expandable-section" id="research-section">
-        <button
-          type="button"
-          class="expand-toggle"
-          id="research-toggle"
-          aria-expanded="false"
-          aria-controls="research-body"
-        >View Research</button>
-        <div class="expandable-body" id="research-body" hidden>
-          <article class="result-markdown raw-research-markdown">
-            {{ raw_research_html | safe }}
-          </article>
-        </div>
-      </div>
-    {% endif %}
+  <!-- ── View full research (expandable) ───────────────────────────────────── -->
+  {% if raw_research_html %}
+  <div class="mb-4">
+    <button
+      type="button"
+      id="research-toggle"
+      class="sig-btn-outline w-full"
+      aria-expanded="false"
+      aria-controls="research-body"
+    >
+      <svg class="w-4 h-4 sig-chevron transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+      </svg>
+      <span class="ml-2">View Research</span>
+    </button>
+    <div id="research-body" class="sig-panel p-7 sm:p-10 mt-2 hidden">
+      <p class="text-[10px] font-semibold tracking-[0.25em] uppercase text-slate-500 mb-6">Full Gemini Deep Research Report</p>
+      <article class="
+        prose prose-invert prose-slate max-w-none prose-sm
+        prose-headings:font-serif prose-headings:font-bold
+        prose-p:text-slate-400 prose-p:leading-relaxed
+        prose-li:text-slate-400
+        prose-strong:text-slate-200
+        prose-a:text-sig-amberlt prose-a:no-underline hover:prose-a:underline
+        prose-code:text-teal-300 prose-code:bg-teal-950/60 prose-code:px-1.5 prose-code:rounded prose-code:text-sm prose-code:before:content-none prose-code:after:content-none
+      ">
+        {{ raw_research_html | safe }}
+      </article>
+    </div>
+  </div>
+  {% endif %}
 
-    {% if raw_research_citations %}
-      <div class="expandable-section" id="citations-section">
-        <button
-          type="button"
-          class="expand-toggle"
-          id="citations-toggle"
-          aria-expanded="false"
-          aria-controls="citations-body"
-        >View Research Citations</button>
-        <div class="expandable-body" id="citations-body" hidden>
-          <ol class="citations-list">
-            {% for citation in raw_research_citations %}
-              <li class="citation-item">
-                {% if citation.type == "url_citation" %}
-                  {% if citation.url %}
-                    <a href="{{ citation.url }}" target="_blank" rel="noopener noreferrer" class="citation-link">
-                      {{ citation.title or citation.url }}
-                    </a>
-                  {% else %}
-                    <span class="citation-link">{{ citation.title or "Unnamed URL" }}</span>
-                  {% endif %}
-                {% elif citation.type == "file_citation" %}
-                  <span class="citation-link">
-                    📄 {{ citation.file_name or citation.document_uri or "File citation" }}
-                    {% if citation.source %} — {{ citation.source }}{% endif %}
-                  </span>
-                {% elif citation.type == "place_citation" %}
-                  {% if citation.url %}
-                    <a href="{{ citation.url }}" target="_blank" rel="noopener noreferrer" class="citation-link">
-                      📍 {{ citation.name or "Place" }}
-                    </a>
-                  {% else %}
-                    <span class="citation-link">📍 {{ citation.name or "Place citation" }}</span>
-                  {% endif %}
-                {% else %}
-                  <span class="citation-link">{{ citation }}</span>
-                {% endif %}
-              </li>
-            {% endfor %}
-          </ol>
-        </div>
-      </div>
-    {% endif %}
-
-  </section>
 </main>
+
+<!-- ── Scripts ──────────────────────────────────────────────────────────────── -->
 {% if research.concise_result_audio %}
-  <script>
-    const audioPlayer = document.querySelector("[data-audio-player]");
-
-    if (audioPlayer) {
-      const audioElement = audioPlayer.querySelector("[data-audio-element]");
-      const audioToggle = audioPlayer.querySelector("[data-audio-toggle]");
-      const audioTimer = audioPlayer.querySelector("[data-audio-timer]");
-      const audioProgress = audioPlayer.querySelector("[data-audio-progress]");
-
-      const formatTime = (seconds) => {
-        if (!Number.isFinite(seconds) || seconds < 0) {
-          return "0:00";
-        }
-
-        const roundedSeconds = Math.floor(seconds);
-        const minutes = Math.floor(roundedSeconds / 60);
-        const remainingSeconds = String(roundedSeconds % 60).padStart(2, "0");
-        return `${minutes}:${remainingSeconds}`;
-      };
-
-      const updateAudioUI = () => {
-        const duration = Number.isFinite(audioElement.duration) ? audioElement.duration : 0;
-        const currentTime = Number.isFinite(audioElement.currentTime) ? audioElement.currentTime : 0;
-        const progressRatio = duration > 0 ? Math.min(currentTime / duration, 1) : 0;
-
-        audioTimer.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
-        audioProgress.style.width = `${progressRatio * 100}%`;
-        audioToggle.textContent = audioElement.paused ? "Play Summary" : "Pause Summary";
-      };
-
-      audioToggle.addEventListener("click", async () => {
-        if (audioElement.paused) {
-          try {
-            await audioElement.play();
-          } catch (error) {
-            audioTimer.textContent = "Playback unavailable";
-            return;
-          }
-        } else {
-          audioElement.pause();
-        }
-
-        updateAudioUI();
-      });
-
-      audioElement.addEventListener("loadedmetadata", updateAudioUI);
-      audioElement.addEventListener("timeupdate", updateAudioUI);
-      audioElement.addEventListener("play", updateAudioUI);
-      audioElement.addEventListener("pause", updateAudioUI);
-      audioElement.addEventListener("ended", updateAudioUI);
-
-      updateAudioUI();
-    }
-  </script>
-{% endif %}
 <script>
-  document.querySelectorAll(".expand-toggle").forEach((button) => {
-    const bodyId = button.getAttribute("aria-controls");
-    const body = document.getElementById(bodyId);
+  const audioPlayer   = document.querySelector("[data-audio-player]");
 
-    const LABELS = {
-      "research-body": ["View Research", "Hide Research"],
-      "citations-body": ["View Research Citations", "Hide Research Citations"],
+  if (audioPlayer) {
+    const audioElement  = audioPlayer.querySelector("[data-audio-element]");
+    const audioToggle   = audioPlayer.querySelector("[data-audio-toggle]");
+    const audioTimer    = audioPlayer.querySelector("[data-audio-timer]");
+    const audioProgress = audioPlayer.querySelector("[data-audio-progress]");
+    const progressTrack = document.getElementById("audio-progress-track");
+
+    const fmt = (s) => {
+      if (!Number.isFinite(s) || s < 0) return "0:00";
+      const r = Math.floor(s);
+      return `${Math.floor(r/60)}:${String(r%60).padStart(2,"0")}`;
     };
 
-    button.addEventListener("click", () => {
-      const isExpanded = button.getAttribute("aria-expanded") === "true";
-      button.setAttribute("aria-expanded", String(!isExpanded));
-      body.hidden = isExpanded;
-      const [showLabel, hideLabel] = LABELS[bodyId] ?? ["View", "Hide"];
-      button.textContent = isExpanded ? showLabel : hideLabel;
+    const updateUI = () => {
+      const dur  = Number.isFinite(audioElement.duration)    ? audioElement.duration    : 0;
+      const cur  = Number.isFinite(audioElement.currentTime) ? audioElement.currentTime : 0;
+      const pct  = dur > 0 ? Math.min(cur / dur, 1) * 100 : 0;
+      audioTimer.textContent = `${fmt(cur)} / ${fmt(dur)}`;
+      audioProgress.style.width = `${pct}%`;
+      const paused = audioElement.paused;
+      audioToggle.innerHTML = paused
+        ? `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.84Z"/></svg><span class="ml-2">Play Summary</span>`
+        : `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M2 10a8 8 0 1 1 16 0 8 8 0 0 1-16 0Zm5-2.25A.75.75 0 0 1 7.75 7h.5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75h-.5A.75.75 0 0 1 7 12.25v-4.5Zm4 0A.75.75 0 0 1 11.75 7h.5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75h-.5a.75.75 0 0 1-.75-.75v-4.5Z" clip-rule="evenodd"/></svg><span class="ml-2">Pause Summary</span>`;
+    };
+
+    audioToggle.addEventListener("click", async () => {
+      if (audioElement.paused) {
+        try { await audioElement.play(); } catch { audioTimer.textContent = "Playback unavailable"; return; }
+      } else {
+        audioElement.pause();
+      }
+      updateUI();
+    });
+
+    /* Click on progress bar to seek */
+    progressTrack.addEventListener("click", (e) => {
+      const rect = progressTrack.getBoundingClientRect();
+      const pct  = (e.clientX - rect.left) / rect.width;
+      if (Number.isFinite(audioElement.duration)) {
+        audioElement.currentTime = pct * audioElement.duration;
+      }
+    });
+
+    ["loadedmetadata","timeupdate","play","pause","ended"].forEach((ev) => audioElement.addEventListener(ev, updateUI));
+    updateUI();
+  }
+</script>
+{% endif %}
+
+<script>
+  /* ── Expandable section toggles ──────────────────────────────────────────── */
+  const TOGGLE_LABELS = {
+    "research-body": ["View Research", "Hide Research"],
+  };
+
+  document.querySelectorAll("[aria-controls]").forEach((btn) => {
+    const bodyId  = btn.getAttribute("aria-controls");
+    const body    = document.getElementById(bodyId);
+    const chevron = btn.querySelector(".sig-chevron");
+    if (!body) return;
+
+    btn.addEventListener("click", () => {
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", String(!expanded));
+      body.classList.toggle("hidden", expanded);
+      if (chevron) chevron.style.transform = expanded ? "" : "rotate(90deg)";
+      const [show, hide] = TOGGLE_LABELS[bodyId] ?? ["View", "Hide"];
+      btn.querySelector("span").textContent = expanded ? show : hide;
     });
   });
 </script>
+
 {% endblock %}

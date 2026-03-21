@@ -4,13 +4,41 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}Signals{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700&family=Playfair+Display:ital,wght@0,600;0,700;1,500&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+              serif: ['"Playfair Display"', "Georgia", "serif"],
+            },
+            colors: {
+              sig: {
+                bg:      "#05100f",
+                panel:   "#0c1f1e",
+                teal:    "#0f3d3e",
+                teallt:  "#1a5456",
+                amber:   "#cc7a3f",
+                amberlt: "#e8954f",
+              },
+            },
+            backgroundImage: {
+              "grad-cta": "linear-gradient(135deg, #cc7a3f 0%, #e8954f 100%)",
+              "grad-panel": "linear-gradient(145deg, rgba(15,61,62,0.35) 0%, rgba(5,16,15,0.55) 100%)",
+            },
+          },
+        },
+      };
+    </script>
     <link rel="stylesheet" href="{{ url_for('static', path='/site.css') }}" />
   </head>
-  <body>
-    <div class="page-shell">
-      <div class="ambient ambient-a"></div>
-      <div class="ambient ambient-b"></div>
-      {% block content %}{% endblock %}
-    </div>
+  <body class="bg-sig-bg text-slate-100 font-sans antialiased min-h-screen overflow-x-hidden selection:bg-sig-teal selection:text-white">
+    <div class="sig-orb-a" aria-hidden="true"></div>
+    <div class="sig-orb-b" aria-hidden="true"></div>
+    {% block content %}{% endblock %}
   </body>
 </html>

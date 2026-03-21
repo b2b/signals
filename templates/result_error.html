@@ -1,18 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}Signals Result Error{% endblock %}
+{% block title %}Signals — {{ title }}{% endblock %}
 
 {% block content %}
-<main class="layout layout-result">
-  <section class="panel error-panel">
-    <p class="eyebrow">Signals</p>
-    <h1>{{ title }}</h1>
-    <p class="hero-copy">{{ message }}</p>
-    <div class="status-item error-code">
-      <span>Status</span>
-      <strong>{{ status_code }}</strong>
-    </div>
-    <a class="primary-button inline-button" href="/">Back to Signals</a>
-  </section>
+<header class="relative z-10 flex items-center justify-between px-6 py-5 max-w-7xl mx-auto">
+  <div class="flex items-center gap-3">
+    <span class="w-2 h-2 rounded-full bg-sig-amberlt"></span>
+    <span class="font-serif text-xl font-semibold tracking-tight text-white">Signals</span>
+  </div>
+</header>
+
+<main class="relative z-10 flex items-center justify-center min-h-[70vh] px-4">
+  <div class="sig-panel p-10 sm:p-14 w-full max-w-lg text-center">
+    <p class="text-[10px] font-semibold tracking-[0.25em] uppercase text-red-400 mb-3">Error {{ status_code }}</p>
+    <h1 class="font-serif text-3xl font-bold text-white mb-4">{{ title }}</h1>
+    <p class="text-slate-400 leading-relaxed mb-8">{{ message }}</p>
+    <a href="/" class="sig-btn-cta">
+      <svg class="w-4 h-4 mr-2 rotate-180" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25 21 12m0 0-3.75 3.75M21 12H3" />
+      </svg>
+      Back to Signals
+    </a>
+  </div>
 </main>
 {% endblock %}
