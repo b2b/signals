@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+motor
+pydantic
+pyjwt
+jinja2
+pydantic-settings
+python-dotenv
+httpx
+surrealdb
+agentmail
+google-genai
