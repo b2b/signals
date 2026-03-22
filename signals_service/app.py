@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -141,13 +141,15 @@ def create_app() -> FastAPI:
             },
         )
 
-    @app.get("/results/{research_id}/audio", response_class=FileResponse)
-    async def research_result_audio(request: Request, research_id: str, token: str = Query(...)) -> FileResponse:
+    @app.get("/results/{research_id}/audio")
+    async def research_result_audio(request: Request, research_id: str, token: str = Query(...)):
         research = await get_research(database=request.app.state.database, research_id=research_id)
         if research is None or research.result_access_token != token:
             raise HTTPException(status_code=404, detail="Audio not found.")
         if research.concise_result_audio is None:
             raise HTTPException(status_code=409, detail="Audio is not ready.")
+        if research.audio_asset.storage_provider == "azure_blob_storage":
+            return RedirectResponse(url=research.concise_result_audio, status_code=307)
         try:
             audio_file_path = resolve_research_audio_file_path(
                 settings=request.app.state.settings,

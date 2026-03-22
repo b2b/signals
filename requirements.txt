@@ -11,3 +11,4 @@ surrealdb
 agentmail
 google-genai
 elevenlabs
+azure-storage-blob

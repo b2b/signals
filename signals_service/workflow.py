@@ -33,7 +33,7 @@ from models import (
     WhitelistMatchType,
 )
 from signals_service import audio_files, emailing, gemini, speech
-from signals_service.prompting import build_deep_research_input, build_result_audio_url, build_result_url
+from signals_service.prompting import build_deep_research_input, build_result_url
 from signals_service.rendering import render_completion_email_bodies
 from signals_service.repositories import (
     find_active_whitelisted_email,
@@ -562,7 +562,7 @@ async def _generate_concise_result_audio(
     template_environment: Environment,
     research: Research,
 ) -> Research:
-    """Synthesize the concise result into speech, save it locally, then send the completion email."""
+    """Synthesize the concise result into speech, upload it to Azure Blob Storage, then send the completion email."""
     if research.concise_result is None:
         raise ValueError("Cannot synthesize concise-result audio without concise_result.")
     try:
@@ -580,28 +580,34 @@ async def _generate_concise_result_audio(
         )
         return await replace_research(database=database, research=failed_research)
     try:
-        audio_file_path = await audio_files.save_concise_result_audio(
+        stored_audio_asset = await audio_files.save_concise_result_audio(
             settings=settings,
             research_id=research.research_id,
             audio_bytes=audio_bytes,
             file_extension=file_extension,
+            mime_type=mime_type,
         )
     except Exception as exc:
         failed_research = _mark_audio_generation_failed(
             research=research,
-            message=f"Local audio file persistence failed: {exc}",
-            provider="local_filesystem",
+            message=f"Azure Blob Storage audio persistence failed: {exc}",
+            provider="azure_blob_storage",
             provider_code=None,
             retryable=True,
         )
         return await replace_research(database=database, research=failed_research)
-    audio_completion_time = _utc_now()
+    audio_completion_time = stored_audio_asset.created_at
     completed_audio_asset = research.audio_asset.model_copy(
         update={
             "status": AudioStatus.COMPLETED,
-            "file_path": audio_file_path,
+            "storage_provider": stored_audio_asset.storage_provider,
+            "container_name": stored_audio_asset.container_name,
+            "blob_name": stored_audio_asset.blob_name,
+            "blob_url": stored_audio_asset.blob_url,
+            "sas_expires_at": stored_audio_asset.sas_expires_at,
+            "file_path": None,
             "mime_type": mime_type,
-            "byte_count": len(audio_bytes),
+            "byte_count": stored_audio_asset.byte_count,
             "completed_at": audio_completion_time,
             "failed_at": None,
             "failure": None,
@@ -612,7 +618,7 @@ async def _generate_concise_result_audio(
     audio_completed_research = _validated_research_update(
         research=research,
         update={
-            "concise_result_audio": build_result_audio_url(settings=settings, research=research),
+            "concise_result_audio": stored_audio_asset.blob_url,
             "audio_asset": completed_audio_asset,
             "status": ResearchStatus.READY_TO_EMAIL,
             "status_updated_at": audio_completion_time,
@@ -622,8 +628,8 @@ async def _generate_concise_result_audio(
     append_lifecycle_event(
         research=audio_completed_research,
         event_type=ResearchLifecycleEventType.AUDIO_GENERATION_COMPLETED,
-        message="Concise-result audio generated and saved locally successfully.",
-        reference_id=audio_file_path,
+        message="Concise-result audio generated and uploaded to Azure Blob Storage successfully.",
+        reference_id=stored_audio_asset.blob_name,
     )
     persisted_audio = await replace_research(database=database, research=audio_completed_research)
     return await _send_completion_email(
@@ -713,7 +719,11 @@ async def _summarize_completed_research(
             "model_name": settings.elevenlabs_model_id,
             "voice_id": settings.elevenlabs_voice_id,
             "output_format": settings.elevenlabs_output_format,
-            "storage_provider": "local_filesystem",
+            "storage_provider": "azure_blob_storage",
+            "container_name": settings.azure_blob_audio_container,
+            "blob_name": None,
+            "blob_url": None,
+            "sas_expires_at": None,
             "file_path": None,
             "mime_type": None,
             "byte_count": 0,

@@ -263,9 +263,17 @@ class SignalsSettings(BaseSettings):
         default="mp3_44100_128",
         description="ElevenLabs output format used for concise-result audio generation.",
     )
+    connection_string: SecretStr = Field(
+        ...,
+        description="Azure Blob Storage connection string used for concise-result audio uploads.",
+    )
+    azure_blob_audio_container: NonEmptyText = Field(
+        default="signals-audio",
+        description="Azure Blob Storage container name used for concise-result audio blobs.",
+    )
     audio_storage_directory: NonEmptyText = Field(
         default="generated_audio",
-        description="Repository-relative directory used for persisting synthesized concise-result audio files locally.",
+        description="Legacy repository-relative directory used for persisted concise-result audio files before Azure Blob Storage migration.",
     )
     public_base_url: NonEmptyText = Field(
         default="http://localhost:8000",
@@ -794,7 +802,7 @@ class ResearchSummary(SignalsBaseModel):
 
 
 class ResearchAudioAsset(SignalsBaseModel):
-    """Metadata for the concise-result audio generation and local-file persistence stage."""
+    """Metadata for the concise-result audio generation and Azure Blob Storage persistence stage."""
 
     model_config = ConfigDict(extra="ignore", validate_assignment=True)
 
@@ -816,10 +824,26 @@ class ResearchAudioAsset(SignalsBaseModel):
         default=None,
         description="Requested ElevenLabs output format used for concise-result audio generation.",
     )
-    storage_provider: str = Field(default="local_filesystem", description="Storage provider used for persisting the synthesized audio asset.")
+    storage_provider: str = Field(default="azure_blob_storage", description="Storage provider used for persisting the synthesized audio asset.")
+    container_name: str | None = Field(
+        default=None,
+        description="Azure Blob Storage container name where the synthesized audio asset is stored.",
+    )
+    blob_name: str | None = Field(
+        default=None,
+        description="Blob path of the synthesized audio asset inside the Azure container.",
+    )
+    blob_url: str | None = Field(
+        default=None,
+        description="HTTPS Azure Blob SAS URL that allows direct download of the synthesized audio asset.",
+    )
+    sas_expires_at: datetime | None = Field(
+        default=None,
+        description="Timestamp when the Azure Blob SAS URL for the synthesized audio asset expires (UTC).",
+    )
     file_path: str | None = Field(
         default=None,
-        description="Absolute local filesystem path of the synthesized concise-result audio file.",
+        description="Legacy absolute local filesystem path retained only for backward compatibility during Azure Blob Storage migration.",
     )
     mime_type: str | None = Field(
         default=None,
@@ -836,17 +860,29 @@ class ResearchAudioAsset(SignalsBaseModel):
     )
     completed_at: datetime | None = Field(
         default=None,
-        description="Timestamp when concise-result audio generation and local file persistence completed successfully (UTC).",
+        description="Timestamp when concise-result audio generation and storage completed successfully (UTC).",
     )
     failed_at: datetime | None = Field(
         default=None,
-        description="Timestamp when concise-result audio generation or local file persistence failed (UTC).",
+        description="Timestamp when concise-result audio generation or storage failed (UTC).",
     )
     failure: ResearchFailure | None = Field(
         default=None,
-        description="Failure metadata captured when concise-result audio generation or local file persistence does not succeed.",
+        description="Failure metadata captured when concise-result audio generation or storage does not succeed.",
     )
     version: int = Field(default=1, description="Stage version, starts at 1 and increments on each update.", ge=1)
+
+
+class AzureAudioBlobSaveResult(SignalsBaseModel):
+    """Metadata returned after persisting a concise-result audio asset to Azure Blob Storage."""
+
+    storage_provider: str = Field(default="azure_blob_storage", description="Storage provider used for persisting the synthesized audio asset.")
+    container_name: str = Field(..., description="Azure Blob Storage container name used for the uploaded audio asset.")
+    blob_name: str = Field(..., description="Blob path used for the uploaded audio asset inside the Azure container.")
+    blob_url: str = Field(..., description="Read-only Azure Blob SAS URL for downloading the uploaded audio asset.")
+    byte_count: int = Field(..., description="Uploaded audio asset size in bytes.", ge=0)
+    created_at: datetime = Field(..., description="Timestamp when the blob upload completed successfully (UTC).")
+    sas_expires_at: datetime = Field(..., description="Timestamp when the Azure Blob SAS URL expires (UTC).")
 
 
 class ResearchCompletionEmailContext(SignalsBaseModel):
@@ -1040,7 +1076,7 @@ class Research(SignalsBaseModel):
     )
     concise_result_audio: str | None = Field(
         default=None,
-        description="Tokenized application URL for streaming the synthesized concise-result audio file in the SPA.",
+        description="Direct audio URL exposed to the SPA, typically an Azure Blob SAS URL for the synthesized concise-result audio file.",
     )
     summary: ResearchSummary = Field(
         default_factory=lambda: ResearchSummary(
