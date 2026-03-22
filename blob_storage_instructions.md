@@ -1,6 +1,6 @@
-# Azure Blob Storage Refactor Instructions
+# Azure Blob Storage Instructions
 
-This document is for a future LLM refactor that will replace local audio-file storage with Azure Blob Storage in the Signals codebase.
+This document explains how audio files should be stored in Azure Blob Storage in the Signals codebase.
 
 Use these instructions when refactoring backend and frontend code so that synthesized audio files are uploaded to Azure Blob Storage and exposed through a signed download URL that remains usable for 365 days from upload time.
 
@@ -36,7 +36,7 @@ After the refactor:
 5. The SAS URL is stored in `research.concise_result_audio`.
 6. The frontend audio player uses that SAS URL directly.
 7. The app should no longer depend on local audio files in `generated_audio`.
-8. The local file-serving route should be removed or left unused after the migration is complete.
+8. The local file-serving route should be removed or left unused.
 
 ## Important Azure Behavior
 
@@ -142,8 +142,6 @@ sas_expires_at: datetime | None = Field(
 Recommended removals or deprecations:
 
 - `file_path`
-
-If compatibility is required during rollout, `file_path` may remain optional but should no longer be populated for new records.
 
 ### `Research.concise_result_audio`
 
@@ -253,13 +251,7 @@ Current behavior:
 
 Target behavior:
 
-Preferred:
-
 - remove this endpoint if the frontend fully uses `research.concise_result_audio` as a direct SAS URL
-
-Alternative compatibility path:
-
-- keep the endpoint temporarily, but make it redirect to the current SAS URL stored in MongoDB
 
 Do not keep local file resolution logic once local storage is removed.
 
@@ -407,14 +399,6 @@ After the refactor, verify all of the following:
 6. The backend no longer depends on `generated_audio/...` for new audio assets.
 7. The old `/results/{research_id}/audio` route is either removed or no longer required for normal playback.
 
-## Migration Guidance
-
-For existing records already pointing to local filesystem paths:
-
-1. Do not break old records silently.
-2. If a migration is not part of the refactor, keep backward compatibility for reads until old records are reprocessed or migrated.
-3. New records should use Azure Blob Storage only.
-
 ## Summary
 
 The intended final design is:
@@ -425,4 +409,4 @@ The intended final design is:
 - exposed via a read-only blob SAS URL valid for 365 days
 - saved in MongoDB on `research.concise_result_audio`
 - used directly by the frontend audio player
-- no local filesystem audio storage for newly generated assets
+- no local filesystem audio storage

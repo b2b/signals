@@ -49,7 +49,7 @@ It deliberately embeds the state needed for the main read path:
 - the latest Gemini interaction state
 - the raw research report and source citations
 - the concise summary
-- audio asset metadata and tokenized audio URL
+- audio asset metadata and the direct playback/download URL
 - outbound email delivery state
 - failures and lifecycle events
 - `result_access_token` for secure result page access
@@ -218,15 +218,16 @@ The service synthesizes `Research.concise_result` into speech using the ElevenLa
 - `status` (pending → in_progress → completed / failed)
 - `provider` (always `elevenlabs`)
 - `model_name`, `voice_id`, `output_format`
-- `storage_provider` (always `local_filesystem`)
-- `file_path` (absolute path to the saved MP3)
+- `storage_provider` (now `azure_blob_storage` for newly generated assets)
+- `container_name`, `blob_name`, `blob_url`, `sas_expires_at`
+- `file_path` only for backward compatibility with old local-file records during migration
 - `mime_type`, `byte_count`
 - timestamps (started_at, completed_at, failed_at)
 - `failure` (ResearchFailure if the step fails)
 
-After the audio file is saved, the service:
+After the audio file is uploaded, the service:
 
-1. Sets `Research.concise_result_audio` — a tokenized URL for streaming the file (e.g. `/results/{id}/audio?token=...`).
+1. Sets `Research.concise_result_audio` to the Azure Blob SAS URL.
 2. Sets `audio_asset.status = completed`.
 3. Transitions `Research.status` to `ready_to_email`.
 
@@ -279,10 +280,10 @@ The email sent to the user contains a secure deep link:
 
 The `result_access_token` is an opaque UUID generated once when the `Research` document is created. It is never displayed in the SPA or API responses; it is only embedded in the emailed link.
 
-Two HTTP endpoints serve the result:
+Two HTTP endpoints are relevant to the result:
 
 - `GET /results/{research_id}?token=...` — renders an HTML page with the `concise_result` (markdown converted to HTML).
-- `GET /results/{research_id}/audio?token=...` — streams the MP3 audio file from the local filesystem.
+- `GET /results/{research_id}/audio?token=...` — legacy compatibility endpoint that redirects Azure-backed records to the stored SAS URL and can still serve older local files during migration.
 
 Both endpoints validate the token against `Research.result_access_token` and return 404 if it does not match.
 
@@ -345,7 +346,7 @@ flowchart TD
     L --> M["ResearchSummary"]
     M --> N["concise_result"]
     N --> O["ResearchAudioAsset (ElevenLabs)"]
-    O --> P["concise_result_audio URL"]
+    O --> P["Azure Blob SAS URL"]
     P --> Q["ResearchCompletionEmailContext"]
     Q --> R["AgentmailSendMessageRequest"]
     R --> S["AgentmailSendMessageResponse"]
@@ -419,7 +420,8 @@ The schema duplicates a few values on purpose.
 | concise summary | `Research.concise_result` and `Research.summary` metadata | Business read path plus generation metadata |
 | final provider output | `Research.raw_research_text` and `GeminiInteractionSnapshot.final_text_output` | Clean business field plus provider snapshot fidelity |
 | timestamps | top-level workflow timestamps and stage-specific timestamps | Efficient workflow filtering plus detailed debugging |
-| audio URL | `Research.concise_result_audio` and `ResearchAudioAsset.file_path` | Tokenized URL for streaming vs. raw filesystem path for serving |
+| audio URL | `Research.concise_result_audio` and `ResearchAudioAsset.blob_url` | Top-level playback URL plus detailed Azure storage metadata |
+| legacy local path | `ResearchAudioAsset.file_path` | Backward compatibility for records that have not yet been migrated |
 
 This duplication is aligned with the MongoDB rule from `AGENTS.md`: optimize the common read path for one-query access.
 

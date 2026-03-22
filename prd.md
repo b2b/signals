@@ -52,7 +52,7 @@ The Signals service is a specialized tool designed to provide rapid, in-depth re
   - Voice: configured via `ELEVENLABS_VOICE_ID` (default: `JBFqnCBsd6RMkjVDRZzb`).
   - Model: configured via `ELEVENLABS_MODEL_ID` (default: `eleven_multilingual_v2`).
   - Output format: configured via `ELEVENLABS_OUTPUT_FORMAT` (default: `mp3_44100_128`).
-- **Storage:** The generated audio file (MP3) is saved to the local filesystem under the directory specified by `AUDIO_STORAGE_DIRECTORY` (default: `generated_audio/`). The file path and metadata are stored in the embedded `ResearchAudioAsset` sub-document. A tokenized URL for streaming the audio is stored at `Research.concise_result_audio`.
+- **Storage:** The generated audio file (MP3) is uploaded directly to Azure Blob Storage using `CONNECTION_STRING`. The blob is stored under a deterministic path, a read-only SAS URL valid for 365 days is generated, and Azure storage metadata is stored in the embedded `ResearchAudioAsset` sub-document. The direct Azure Blob SAS URL is stored at `Research.concise_result_audio`.
 - **Reference:** [ElevenLabs TTS API Docs](https://elevenlabs.io/docs/eleven-api/guides/cookbooks/text-to-speech)
 
 ### 3.7. Email Notification
@@ -71,8 +71,9 @@ The Signals service is a specialized tool designed to provide rapid, in-depth re
   - If the research has not yet finished processing, a 409 "Result Not Ready" error page is returned.
   - If the research is complete, an HTML result page is rendered showing the `concise_result` as formatted HTML (markdown converted to HTML via the `rendering` module).
 - **Audio streaming endpoint:** `GET /results/{research_id}/audio?token={result_access_token}`
-  - Returns the synthesized MP3 audio file as a `FileResponse`.
-  - Validates the token and checks that the audio file exists on disk before serving.
+  - For Azure-backed records, redirects to the stored Azure Blob SAS URL.
+  - For older unmigrated records, may still serve the local MP3 file during the migration window.
+  - The frontend can also use `Research.concise_result_audio` directly as the `<audio>` source once it contains the SAS URL.
 
 ### 3.9. SPA Status Polling API
 - **Endpoint:** `GET /api/researches/{research_id}`
@@ -81,7 +82,7 @@ The Signals service is a specialized tool designed to provide rapid, in-depth re
   - `research_id`, `topic`, `email`, `status`
   - `gemini_status`, `summary_status`, `audio_status`, `notification_status`
   - `concise_result_available` (bool): whether the result is ready to view.
-  - `concise_result_audio_available` (bool): whether the audio file is ready.
+  - `concise_result_audio_available` (bool): whether the audio asset is ready for playback.
   - `created_at`, `updated_at`, `completed_at`, `failed_at`, `latest_failure_message`
 
 ## 4. Technical Specifications & Architecture
@@ -124,14 +125,16 @@ All secrets and configuration options are loaded from the `.env` file via `Signa
 | `ELEVENLABS_VOICE_ID` | | `JBFqnCBsd6RMkjVDRZzb` | ElevenLabs voice used for audio synthesis |
 | `ELEVENLABS_MODEL_ID` | | `eleven_multilingual_v2` | ElevenLabs model used for audio synthesis |
 | `ELEVENLABS_OUTPUT_FORMAT` | | `mp3_44100_128` | Output format for synthesized audio |
-| `AUDIO_STORAGE_DIRECTORY` | | `generated_audio` | Local directory where MP3 audio files are stored |
+| `CONNECTION_STRING` | ✓ | — | Azure Blob Storage connection string used for audio uploads |
+| `AZURE_BLOB_AUDIO_CONTAINER` | | `signals-audio` | Azure Blob Storage container name for concise-result audio blobs |
+| `AUDIO_STORAGE_DIRECTORY` | | `generated_audio` | Legacy local audio directory retained temporarily for backward compatibility and migration |
 
 ## 5. Implemented Modules
 - `signals_service/app.py`: FastAPI application factory, lifespan setup, route definitions.
 - `signals_service/workflow.py`: Full end-to-end workflow orchestration (whitelist, research creation, Gemini submission/polling, summarization, audio generation, email dispatch).
 - `signals_service/gemini.py`: Gemini Deep Research submission and interaction polling logic.
 - `signals_service/speech.py`: ElevenLabs TTS synthesis (async wrapper over synchronous SDK call).
-- `signals_service/audio_files.py`: Local filesystem persistence for synthesized audio files.
+- `signals_service/audio_files.py`: Azure Blob Storage persistence and SAS URL generation for synthesized audio files, plus legacy local-file migration helpers.
 - `signals_service/emailing.py`: Agentmail send-message integration.
 - `signals_service/rendering.py`: Markdown-to-HTML rendering and Jinja2 email template rendering.
 - `signals_service/prompting.py`: Prompt loading, SHA-256 hashing, deep link URL construction.

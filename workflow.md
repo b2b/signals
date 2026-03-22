@@ -21,7 +21,7 @@ SPA → [Submit topic + email]
          ↓
  [6] Summarization → concise_result stored
          ↓
- [7] ElevenLabs audio generation → MP3 saved locally
+ [7] ElevenLabs audio generation → MP3 uploaded to Azure Blob Storage
          ↓
  [8] Completion email sent (Agentmail) with secure result link
          ↓
@@ -166,15 +166,19 @@ When Gemini status is `completed`:
    - `voice_id` from `ELEVENLABS_VOICE_ID`
    - `model_id` from `ELEVENLABS_MODEL_ID`
    - `output_format` from `ELEVENLABS_OUTPUT_FORMAT` (default: `mp3_44100_128`)
-3. The resulting audio bytes are saved to the local filesystem at `{AUDIO_STORAGE_DIRECTORY}/{research_id}.{extension}`.
-4. On success:
+3. The resulting audio bytes are uploaded directly to Azure Blob Storage using `CONNECTION_STRING` from `.env`.
+4. The blob path is deterministic: `researches/{research_id}/concise-result-audio.{extension}`.
+5. A read-only Blob SAS URL is generated with a validity window of 365 days from upload time.
+6. On success:
    - `Research.audio_asset.status` → `completed`.
-   - `Research.audio_asset.file_path`, `mime_type`, `byte_count` set.
-   - `Research.concise_result_audio` is populated with a tokenized URL: `/results/{research_id}/audio?token={result_access_token}`.
+   - `Research.audio_asset.storage_provider = azure_blob_storage`.
+   - `Research.audio_asset.container_name`, `blob_name`, `blob_url`, `sas_expires_at`, `mime_type`, and `byte_count` are set.
+   - `Research.audio_asset.file_path` is cleared for newly generated assets.
+   - `Research.concise_result_audio` is populated with the Azure Blob SAS URL.
    - `Research.status` → `ready_to_email`.
    - Lifecycle event appended: `audio_generation_completed`.
    - Immediately proceeds to Step 8.
-5. On failure (ElevenLabs API error or filesystem error):
+7. On failure (ElevenLabs API error or Azure Blob upload / SAS generation error):
    - `Research.audio_asset.status` → `failed`.
    - `Research.status` → `audio_failed`.
    - `ResearchFailure` appended.
@@ -208,7 +212,7 @@ When Gemini status is `completed`:
 
 ## Step 9 — User Opens Result Page
 
-**Endpoints:** `GET /results/{research_id}?token=...` and `GET /results/{research_id}/audio?token=...`  
+**Endpoints:** `GET /results/{research_id}?token=...` and legacy-compatible `GET /results/{research_id}/audio?token=...`  
 **Module:** `signals_service/app.py`
 
 ### HTML Result Page
@@ -220,12 +224,14 @@ When Gemini status is `completed`:
    - `research` object (for topic, created_at, etc.)
    - `concise_result_html`: the concise result rendered from Markdown to HTML.
 
-### Audio Streaming
+### Audio Playback
 
 1. The same token validation is applied.
 2. `Research.concise_result_audio` is checked; if `None` → 409 error.
-3. The absolute filesystem path is resolved via `audio_files.resolve_research_audio_file_path`.
-4. The MP3 file is served as a `FileResponse` with the correct MIME type.
+3. For newly generated or migrated records, `Research.concise_result_audio` is already a direct Azure Blob SAS URL and the frontend `<audio>` element uses it directly.
+4. The legacy `/results/{research_id}/audio` endpoint remains as a compatibility path:
+   - Azure-backed records are redirected to the SAS URL.
+   - Older local-file records can still be served from disk until migration is complete.
 
 ---
 
@@ -295,4 +301,6 @@ research_queued
 | `ELEVENLABS_VOICE_ID` | `JBFqnCBsd6RMkjVDRZzb` | ElevenLabs voice |
 | `ELEVENLABS_MODEL_ID` | `eleven_multilingual_v2` | ElevenLabs model |
 | `ELEVENLABS_OUTPUT_FORMAT` | `mp3_44100_128` | Audio output format |
-| `AUDIO_STORAGE_DIRECTORY` | `generated_audio` | Local audio file storage |
+| `CONNECTION_STRING` | — | Azure Blob Storage connection string |
+| `AZURE_BLOB_AUDIO_CONTAINER` | `signals-audio` | Azure Blob Storage container for synthesized audio |
+| `AUDIO_STORAGE_DIRECTORY` | `generated_audio` | Legacy local audio storage used only for backward compatibility and migration |
