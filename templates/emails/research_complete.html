@@ -1,43 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
-  <body style="margin:0;padding:0;background:#f4efe6;color:#1f2223;font-family:'Avenir Next',Helvetica,Arial,sans-serif;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#fffdf8;border-radius:24px;overflow:hidden;border:1px solid #d9d0c1;">
-            <tr>
-              <td style="padding:32px 32px 24px;background:linear-gradient(135deg,#0f3d3e,#184f47 55%,#cc7a3f);color:#fffdf8;">
-                <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.24em;text-transform:uppercase;opacity:0.84;">Signals</p>
-                <h1 style="margin:0;font-size:28px;line-height:1.15;">Your research is ready</h1>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:32px;">
-                <p style="margin:0 0 16px;font-size:16px;line-height:1.65;">
-                  The Signals workflow has finished processing your request for:
-                </p>
-                <p style="margin:0 0 20px;padding:16px 18px;background:#f4efe6;border-radius:16px;font-size:18px;line-height:1.5;">
-                  {{ topic }}
-                </p>
-                <p style="margin:0 0 24px;font-size:15px;line-height:1.65;">
-                  Completed at {{ completed_at_label }}. Open the secure link below to view the result in your browser.
-                </p>
-                <p style="margin:0 0 24px;">
-                  <a
-                    href="{{ result_url }}"
-                    style="display:inline-block;padding:14px 22px;background:#0f3d3e;color:#fffdf8;text-decoration:none;border-radius:999px;font-weight:600;"
-                  >
-                    Open Research Result
-                  </a>
-                </p>
-                <p style="margin:0;font-size:13px;line-height:1.6;color:#5a625f;">
-                  This message was sent to {{ recipient_email }}.
-                </p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Signals — Your research is ready</title>
+</head>
+<body style="margin:0;padding:0;background-color:#05100f;font-family:'Inter',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+
+  <!-- Outer wrapper -->
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+         style="background-color:#05100f;padding:40px 16px;">
+    <tr>
+      <td align="center">
+
+        <!-- Card -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+               style="max-width:600px;background-color:#0c1f1e;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,0.07);box-shadow:0 24px 64px rgba(0,0,0,0.55);">
+
+          <!-- Header band -->
+          <tr>
+            <td style="padding:36px 40px 32px;background:linear-gradient(135deg,#071b1c 0%,#0f3d3e 55%,#1a5456 100%);border-bottom:1px solid rgba(255,255,255,0.06);">
+              <!-- Logo row -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="padding-right:8px;vertical-align:middle;">
+                    <div style="width:8px;height:8px;border-radius:9999px;background-color:#e8954f;"></div>
+                  </td>
+                  <td style="vertical-align:middle;">
+                    <span style="font-size:14px;font-weight:700;letter-spacing:0.04em;color:#f1f5f9;">Signals</span>
+                  </td>
+                </tr>
+              </table>
+              <!-- Headline -->
+              <h1 style="margin:20px 0 0;font-size:28px;font-weight:700;line-height:1.15;letter-spacing:-0.02em;color:#ffffff;">
+                Your research<br/>is ready
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 40px;">
+
+              <!-- Intro -->
+              <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#94a3b8;">
+                The Signals workflow has finished processing your request for:
+              </p>
+
+              <!-- Topic box -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                     style="margin-bottom:24px;">
+                <tr>
+                  <td style="padding:16px 20px;background-color:rgba(15,61,62,0.35);border-radius:12px;border:1px solid rgba(26,84,86,0.45);">
+                    <p style="margin:0;font-size:16px;font-weight:600;line-height:1.55;color:#e2e8f0;">
+                      {{ topic }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Completion time -->
+              <p style="margin:0 0 28px;font-size:14px;line-height:1.7;color:#64748b;">
+                Completed at
+                <span style="color:#94a3b8;font-weight:600;">{{ completed_at_label }}</span>.
+                Open the secure link below to view your concise result and audio briefing.
+              </p>
+
+              <!-- CTA button -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:32px;">
+                <tr>
+                  <td style="border-radius:999px;background:linear-gradient(135deg,#cc7a3f 0%,#e8954f 100%);box-shadow:0 8px 24px rgba(204,122,63,0.35);">
+                    <a href="{{ result_url }}"
+                       style="display:inline-block;padding:15px 30px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.01em;">
+                      Open Research Result &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- URL fallback -->
+              <p style="margin:0 0 28px;font-size:12px;line-height:1.6;color:#475569;">
+                If the button doesn't work, copy and paste this URL into your browser:<br/>
+                <a href="{{ result_url }}" style="color:#5eead4;word-break:break-all;text-decoration:none;">
+                  {{ result_url }}
+                </a>
+              </p>
+
+              <!-- Divider -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                     style="margin-bottom:20px;">
+                <tr>
+                  <td style="border-top:1px solid rgba(255,255,255,0.06);font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+
+              <!-- Footer note -->
+              <p style="margin:0;font-size:12px;line-height:1.6;color:#334155;">
+                This message was sent to
+                <span style="color:#475569;">{{ recipient_email }}</span>.
+                This link is unique to your research request.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer band -->
+          <tr>
+            <td style="padding:16px 40px;background-color:rgba(5,16,15,0.6);border-top:1px solid rgba(255,255,255,0.05);">
+              <p style="margin:0;font-size:11px;color:#1e293b;letter-spacing:0.08em;text-transform:uppercase;">
+                Signals &mdash; Deep Research Intelligence
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Card -->
+
+      </td>
+    </tr>
+  </table>
+
+</body>
 </html>
